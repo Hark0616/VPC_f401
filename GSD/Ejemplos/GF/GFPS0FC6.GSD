@@ -1,0 +1,245 @@
+;******************************************************************************
+; GSD file for Georg Fischer Piping Systems Ltd. EA25-250 PROFIBUS_DP module 
+;
+; Version 1.01
+;
+; 2023-06-01
+;
+; For a detailed description of the +GF+ EA25-250 PROFIBUS_DP module see
+; EA25-250 PROFIBUS_DP interface description
+;
+;
+;******************************************************************************
+
+
+#Profibus_DP
+
+
+;==============================================================================
+;     General DP Keywords
+;==============================================================================
+
+GSD_Revision = 5
+Vendor_Name = "Georg Fischer Piping Systems"
+Model_Name = "EA25-250"
+Revision = "1.00"
+Ident_Number = 0x0FC6
+Protocol_Ident = 0
+Station_Type = 0
+FMS_supp = 0
+Hardware_Release = "Rev.C"
+Software_Release = "V1.01"
+Redundancy = 0
+Repeater_Ctrl_Sig=0
+24V_Pins = 0
+
+
+;==============================================================================
+;     Supported baudrates
+;==============================================================================
+
+9.6_supp = 1
+19.2_supp = 1
+45.45_supp = 1
+93.75_supp = 1
+187.5_supp = 1
+500_supp = 1
+1.5M_supp = 1
+3M_supp=0
+6M_supp=0
+12M_supp=0
+
+MaxTsdr_9.6=15
+MaxTsdr_19.2=15
+MaxTsdr_45.45=15
+MaxTsdr_93.75=15
+MaxTsdr_187.5=15
+MaxTsdr_500=15
+MaxTsdr_1.5M=20
+MaxTsdr_3M=35
+MaxTsdr_6M=50
+MaxTsdr_12M=95
+
+
+;==============================================================================
+;     Slave specific values
+;==============================================================================
+
+Slave_Family=4 ; 4 = Valves
+Implementation_Type = "VPC3+"
+Bitmap_Device = "EA_PROFI"
+Freeze_Mode_supp=1
+Sync_Mode_supp=1
+Fail_Safe=1
+Auto_Baud_supp=1
+Set_Slave_Add_supp=1
+Min_Slave_Intervall=6
+Modular_Station=1
+Max_Module=1 ; max 1 module at the same time
+Modul_Offset=1
+Max_Input_Len=14 ; max. input length remains same
+Max_Output_Len=3 ; max. output length remains same
+Max_Data_Len=17 ; max. input length + output length
+Max_Diag_Data_Len=14
+
+
+;==============================================================================
+;    User-Prm-Data
+;==============================================================================
+
+Max_User_Prm_Data_Len = 6
+Ext_User_Prm_Data_Const(0)= 0x00,0x00,0x00,0x40,0x09,0x01
+
+;==============================================================================
+;    Prm-Text-Def-List
+;==============================================================================
+
+PrmText=1
+Text(0) = "STOP"
+Text(1) = "CLOSE"
+Text(2) = "OPEN"
+EndPrmText
+
+
+;==============================================================================
+;    Ext-User-Prm-Data-Def-List
+;==============================================================================
+
+ExtUserPrmData=1 "cyc_time_ext_bcd"
+BitArea(0-3) 0 0-9
+EndExtUserPrmData
+
+ExtUserPrmData=2 "cyc_time_mon_bcd"
+BitArea(4-7) 4 0-9
+EndExtUserPrmData
+
+ExtUserPrmData=3 "current_mon_bcd"
+BitArea(0-3) 9 0-9
+EndExtUserPrmData
+
+ExtUserPrmData=4 "signal_loss_action"
+BitArea(0-1) 0 0-2
+Prm_Text_Ref=1
+EndExtUserPrmData
+
+Ext_User_Prm_Data_Ref(3)=1
+Ext_User_Prm_Data_Ref(3)=2
+Ext_User_Prm_Data_Ref(4)=3
+Ext_User_Prm_Data_Ref(5)=4
+
+
+;==============================================================================
+;     Module-Definition-List
+;==============================================================================
+
+
+;==============================================================================
+; Module 1: legacy device support - all possible cyclic data I/O in one module 
+;==============================================================================
+; default configuration - for compatibility
+Module = "Data Exchange Telegram 1" 0x10, 0x10, 0x10, 0x50, 0x10, 0x93, 0x93, 0x20, 0x20, 0x20
+1
+Info_Text="Compact-Module - Compatibility mode, legacy device support"
+EndModule
+
+;==============================================================================
+; Module 2: Data Exchange Telegram 2 - minimal - 2 Byte Out , 1 Byte In
+;==============================================================================
+Module = "Data Exchange Telegram 2" 0xA1, 0x90
+2
+Info_Text="Data Exchange Telegram 2 - minimal, from firmware V1.01"
+EndModule
+
+;==============================================================================
+; Module 3: Data Exchange Telegram 3 -  3 Byte Out , 2 Byte In
+;==============================================================================
+Module = "Data Exchange Telegram 3" 0xA2, 0x91
+3
+Info_Text="Data Exchange Telegram 3, from firmware V1.01"
+EndModule
+
+;==============================================================================
+; Module 4: Data Exchange Telegram 4 -  3 Byte Out , 3 Byte In
+;==============================================================================
+Module = "Data Exchange Telegram 4" 0xA2, 0x92
+4
+Info_Text="Data Exchange Telegram 4, from firmware V1.01"
+EndModule
+
+;==============================================================================
+; Module 5: Data Exchange Telegram 5 -  3 Byte Out , 5 Byte In
+;==============================================================================
+Module = "Data Exchange Telegram 5" 0xA2, 0x94
+5
+Info_Text="Data Exchange Telegram 5, from firmware V1.01"
+EndModule
+
+;==============================================================================
+; Module 6: Data Exchange Telegram 6 -  3 Byte Out , 7 Byte In
+;==============================================================================
+Module = "Data Exchange Telegram 6" 0xA2, 0x96
+6
+Info_Text="Data Exchange Telegram 6, from firmware V1.01"
+EndModule
+
+;==============================================================================
+; Module 7: Data Exchange Telegram 7 -  3 Byte Out , 9 Byte In
+;==============================================================================
+Module = "Data Exchange Telegram 7" 0xA2, 0x98
+7
+Info_Text="Data Exchange Telegram 7, from firmware V1.01"
+EndModule
+
+;==============================================================================
+; Module 8: Data Exchange Telegram 8 -  3 Byte Out , 10 Byte In
+;==============================================================================
+Module = "Data Exchange Telegram 8" 0xA2, 0x99
+8
+Info_Text="Data Exchange Telegram 8, from firmware V1.01"
+EndModule
+
+
+;==============================================================================
+;                   Device specific diagnostic / error_flags
+;==============================================================================
+
+; Byte 0 MSB      ERRFLAGS_3
+UnitDiagType = 129
+X_Unit_Diag_Bit(24) = "reserved"
+X_Unit_Diag_Bit(25) = "reserved"
+X_Unit_Diag_Bit(26) = "reserved"
+X_Unit_Diag_Bit(27) = "reserved"
+X_Unit_Diag_Bit(28) = "reserved"
+X_Unit_Diag_Bit(29) = "reserved"
+X_Unit_Diag_Bit(30) = "reserved"
+X_Unit_Diag_Bit(31) = "reserved"
+; Byte 1          ERRFLAGS_2
+X_Unit_Diag_Bit(32) = "reserved"
+X_Unit_Diag_Bit(33) = "reserved"
+X_Unit_Diag_Bit(34) = "reserved"
+X_Unit_Diag_Bit(35) = "reserved"
+X_Unit_Diag_Bit(36) = "reserved"
+X_Unit_Diag_Bit(37) = "reserved"
+X_Unit_Diag_Bit(38) = "reserved"
+X_Unit_Diag_Bit(39) = "reserved"
+; Byte 2          ERRFLAGS_1
+X_Unit_Diag_Bit(40) = "powerfail action"
+X_Unit_Diag_Bit(41) = "powerfail accu lvl warn"
+X_Unit_Diag_Bit(42) = "powerfail accu defect"
+X_Unit_Diag_Bit(43) = "watchdog recovery"
+X_Unit_Diag_Bit(44) = "mot current overflow"
+X_Unit_Diag_Bit(45) = "mot driver overload"
+X_Unit_Diag_Bit(46) = "reserved"
+X_Unit_Diag_Bit(47) = "reserved"
+; Byte 3 LSB      ERRFLAGS_0
+X_Unit_Diag_Bit(48) = "undervoltage"
+X_Unit_Diag_Bit(49) = "overtemp"
+X_Unit_Diag_Bit(50) = "positioning time over"
+X_Unit_Diag_Bit(51) = "heating defect"
+X_Unit_Diag_Bit(52) = "position detection failed"
+X_Unit_Diag_Bit(53) = "position out of range"
+X_Unit_Diag_Bit(54) = "manual actuation"
+X_Unit_Diag_Bit(55) = "accessory no reply"
+EndUnitDiagType;
+
+

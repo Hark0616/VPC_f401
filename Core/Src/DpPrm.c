@@ -3,7 +3,7 @@
 /*                                                                           */
 /* 0000  000   000  00000 0  000  0   0 0 0000                               */
 /* 0   0 0  0 0   0 0     0 0   0 0   0 0 0   0                              */
-/* 0   0 0  0 0   0 0     0 0     0   0 0 0   0      Einsteinstraße 6        */
+/* 0   0 0  0 0   0 0     0 0     0   0 0 0   0      Einsteinstraï¿½e 6        */
 /* 0000  000  0   0 000   0 0     00000 0 0000       91074 Herzogenaurach    */
 /* 0     00   0   0 0     0 0     0   0 0 0                                  */
 /* 0     0 0  0   0 0     0 0   0 0   0 0 0          Phone: ++499132744200   */
@@ -40,6 +40,8 @@
 /* include hierarchy */
 
 #include "platform.h"
+#include "main.h"
+#include <stdio.h>
 
 /*---------------------------------------------------------------------------*/
 /* function prototypes                                                       */
@@ -111,6 +113,24 @@ DP_ERROR_CODE DpPrm_ChkNewPrmData( MEM_UNSIGNED8_PTR pbPrmData, uint8_t bPrmLeng
 MEM_STRUC_PRM_PTR psToPrmData;
 DP_ERROR_CODE     eRetValue;
 
+   // DiagnÃ³stico: Agregar logging via UART
+   extern UART_HandleTypeDef huart1;
+   char prm_diag[96];
+   int prm_n;
+   
+   prm_n = snprintf(prm_diag, sizeof(prm_diag), 
+       "[PRM] Recibido: Len=%d (esperado=%d)\r\n", bPrmLength, PRM_LEN_DPV1);
+   HAL_UART_Transmit(&huart1, (uint8_t*)prm_diag, prm_n, 50);
+   
+   // Mostrar primeros bytes del telegrama
+   if(bPrmLength >= 7) {
+      prm_n = snprintf(prm_diag, sizeof(prm_diag), 
+          "[PRM] Data: [%02X %02X %02X %02X %02X %02X %02X]\r\n",
+          pbPrmData[0], pbPrmData[1], pbPrmData[2], pbPrmData[3],
+          pbPrmData[4], pbPrmData[5], pbPrmData[6]);
+      HAL_UART_Transmit(&huart1, (uint8_t*)prm_diag, prm_n, 50);
+   }
+
    DpPrm_Init();
 
    eRetValue = DP_OK;
@@ -120,10 +140,17 @@ DP_ERROR_CODE     eRetValue;
       psToPrmData = ( MEM_STRUC_PRM_PTR )pbPrmData;
 
       eRetValue = DpPrm_ChkDpv1StatusBytes( psToPrmData->bDpv1Status1, psToPrmData->bDpv1Status2, psToPrmData->bDpv1Status3 );
+      
+      prm_n = snprintf(prm_diag, sizeof(prm_diag), 
+          "[PRM] DPV1 Status check: %s\r\n", (eRetValue == DP_OK) ? "OK" : "FAIL");
+      HAL_UART_Transmit(&huart1, (uint8_t*)prm_diag, prm_n, 50);
    }//if( bPrmLength == PRM_LEN_DPV1 )
    else
    {
       eRetValue = DP_PRM_LEN_ERROR;
+      prm_n = snprintf(prm_diag, sizeof(prm_diag), 
+          "[PRM] ERROR: Longitud incorrecta! Len=%d != %d\r\n", bPrmLength, PRM_LEN_DPV1);
+      HAL_UART_Transmit(&huart1, (uint8_t*)prm_diag, prm_n, 50);
    }//else of if( bPrmLength == PRM_LEN_DPV1 )
 
    if( ( VPC3_GET_DP_STATE() == DATA_EX ) && ( eRetValue == DP_OK ) )

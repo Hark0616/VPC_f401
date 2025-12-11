@@ -172,7 +172,8 @@
 
 #define PTR_ATTR                                  /*!< Attribute of the pointers to the asic. ( compiler-,microcontroller specific: xdata, near, far, huge ... ) */
 #define VPC3_PTR                 PTR_ATTR *              /*!< Pointer attribut */
-#define VPC3_ADR                 uint16_t                /*!< Attribute of the asic address. ( uint16_t, uint32_t ) */
+/* CORREGIDO: Usar uint32_t para direcciones de 32-bit ARM (RAM está en 0x2000XXXX) */
+#define VPC3_ADR                 uint32_t                /*!< Attribute of the asic address. ( uint16_t, uint32_t ) */
 #define VPC3_UNSIGNED8_PTR       uint8_t PTR_ATTR *      /*!< Pointer of byte to VPC3+ */
 #define VPC3_NULL_PTR            (void VPC3_PTR)0
 #define VPC3_TRUE                TRUE
@@ -193,13 +194,23 @@
 /*---------------------------------------------------------------------*/
 /* XRAM area                                                           */
 /*---------------------------------------------------------------------*/
+/*
+ * FIX CRÍTICO: En modo serial (SPI), el código original definía VPC3_ASIC_ADDRESS
+ * como 0x0000, que en STM32 apunta a Flash (solo lectura). Esto causaba que las
+ * escrituras a pVpc3->bIdentHigh, etc. fallaran silenciosamente.
+ * 
+ * Solución: Usar un buffer en RAM (vpc3_shadow_ram) declarado en main.c
+ */
+extern uint8_t vpc3_shadow_ram[];  /* Buffer de 2KB en RAM para memoria sombra del VPC3 */
+
 #if VPC3_SERIAL_MODE
 
    #if VPC3_I2C
       #define VPC3_I2C_ADDRESS      ((uint8_t)0x50)                  /*!< I2C address. */
    #endif//#if VPC3_I2C
 
-   #define VPC3_ASIC_ADDRESS        ((unsigned char *)0x0000)        /*!< VPC3+ address. */
+   /* CORREGIDO: Apuntar a RAM real en lugar de 0x0000 (Flash) */
+   #define VPC3_ASIC_ADDRESS        ((unsigned char *)vpc3_shadow_ram)  /*!< VPC3+ shadow RAM address. */
 
 #else
 

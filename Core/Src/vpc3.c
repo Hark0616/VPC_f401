@@ -134,8 +134,12 @@ void Vpc3Write(VPC3_ADR wAddress, uint8_t bData )
 	/* ********************************************************************************** */
 	/* (HAL - Hardware Abstraction Layer)                                    */
 	/* ********************************************************************************** */
-	uint8_t upperByte = (uint8_t)(wAddress >> 8);
-	uint8_t lowerByte = (uint8_t)wAddress;
+	/* CORREGIDO: wAddress es ahora dirección absoluta en shadow RAM (0x2000XXXX) */
+	/* Necesitamos convertirla a offset relativo (0x0000-0x0FFF) para el VPC3 */
+	extern uint8_t vpc3_shadow_ram[];
+	uint16_t vpc3Offset = (uint16_t)(wAddress - (VPC3_ADR)(uintptr_t)vpc3_shadow_ram);
+	uint8_t upperByte = (uint8_t)(vpc3Offset >> 8);
+	uint8_t lowerByte = (uint8_t)vpc3Offset;
 	uint8_t tx_buffer[4];
 
 	// Las funciones DpAppl_... son stubs vacíos por ahora, se mantienen.
@@ -183,8 +187,12 @@ uint8_t Vpc3Read( VPC3_ADR wAddress )
 	/* ********************************************************************************** */
 	/* (HAL - Hardware Abstraction Layer)                                    */
 	/* ********************************************************************************** */
-	uint8_t upperByte = (uint8_t)(wAddress >> 8);
-	uint8_t lowerByte = (uint8_t)wAddress;
+	/* CORREGIDO: wAddress es ahora dirección absoluta en shadow RAM (0x2000XXXX) */
+	/* Necesitamos convertirla a offset relativo (0x0000-0x0FFF) para el VPC3 */
+	extern uint8_t vpc3_shadow_ram[];
+	uint16_t vpc3Offset = (uint16_t)(wAddress - (VPC3_ADR)(uintptr_t)vpc3_shadow_ram);
+	uint8_t upperByte = (uint8_t)(vpc3Offset >> 8);
+	uint8_t lowerByte = (uint8_t)vpc3Offset;
 	uint8_t tx_buffer[4] = {READ_BYTE, upperByte, lowerByte, 0x00}; // Comando, Addr High, Addr Low, Dummy para recibir
 	uint8_t rx_buffer[4];
 
@@ -227,8 +235,12 @@ void Vpc3MemSet( VPC3_ADR wAddress, uint8_t bValue, uint16_t wLength )
 	/* ********************************************************************************** */
 	/* (HAL - Hardware Abstraction Layer)                                    */
 	/* ********************************************************************************** */
-	uint8_t upperByte = (uint8_t)(wAddress >> 8);
-	uint8_t lowerByte = (uint8_t)wAddress;
+	/* CORREGIDO: wAddress es ahora dirección absoluta en shadow RAM (0x2000XXXX) */
+	/* Necesitamos convertirla a offset relativo (0x0000-0x0FFF) para el VPC3 */
+	extern uint8_t vpc3_shadow_ram[];
+	uint16_t vpc3Offset = (uint16_t)(wAddress - (VPC3_ADR)(uintptr_t)vpc3_shadow_ram);
+	uint8_t upperByte = (uint8_t)(vpc3Offset >> 8);
+	uint8_t lowerByte = (uint8_t)vpc3Offset;
 	uint8_t cmd_addr_buffer[3] = {WRITE_ARRAY, upperByte, lowerByte};
 
 	DpAppl_DisableInterruptVPC3Channel1();
@@ -269,20 +281,27 @@ void Vpc3MemSet( VPC3_ADR wAddress, uint8_t bValue, uint16_t wLength )
 
 uint8_t Vpc3MemCmp( VPC3_UNSIGNED8_PTR pToVpc3Memory1, VPC3_UNSIGNED8_PTR pToVpc3Memory2, uint16_t wLength )
 {
-   /** @todo Add your own code here! */
-
-uint8_t bRetValue;
-uint16_t i;
+   /* CORREGIDO: Calcular offset relativo al shadow RAM para direcciones VPC3 */
+   extern uint8_t vpc3_shadow_ram[];
+   uint8_t bRetValue;
+   uint16_t i;
+   VPC3_ADR addr1, addr2;
 
    bRetValue = 0;
    for( i = 0; i < wLength; i++ )
    {
-      if( Vpc3Read( (VPC3_ADR)(uintptr_t)pToVpc3Memory1++ ) != Vpc3Read( (VPC3_ADR)(uintptr_t)pToVpc3Memory2++ ) )
+      /* Convertir punteros de shadow RAM a offsets para el VPC3 */
+      addr1 = (VPC3_ADR)((uintptr_t)pToVpc3Memory1 - (uintptr_t)vpc3_shadow_ram);
+      addr2 = (VPC3_ADR)((uintptr_t)pToVpc3Memory2 - (uintptr_t)vpc3_shadow_ram);
+      
+      if( Vpc3Read( addr1 ) != Vpc3Read( addr2 ) )
       {
          bRetValue = 1;
          break;
-      }//if( Vpc3Read( (VPC3_ADR)pToVpc3Memory1++ ) != Vpc3Read( (VPC3_ADR)pToVpc3Memory2++ ) )
-   }//for( i = 0; i < wLength; i++ )
+      }
+      pToVpc3Memory1++;
+      pToVpc3Memory2++;
+   }
 
    return bRetValue;
 }//uint8_t Vpc3MemCmp( VPC3_UNSIGNED8_PTR pToVpc3Memory1, VPC3_UNSIGNED8_PTR pToVpc3Memory2, uint16_t wLength )
@@ -310,7 +329,10 @@ void CopyFromVpc3( MEM_UNSIGNED8_PTR pLocalMemory, VPC3_UNSIGNED8_PTR pToVpc3Mem
 	/* ********************************************************************************** */
 	/* Nuevo codigo (HAL - Hardware Abstraction Layer)                                    */
 	/* ********************************************************************************** */
-	uint16_t wAddress = (VPC3_ADR)(uintptr_t)pToVpc3Memory;
+	/* CORREGIDO: Calcular offset relativo al shadow RAM, no dirección absoluta */
+	/* pToVpc3Memory apunta a shadow RAM (0x2000XXXX), pero VPC3 espera offset (0x0000-0x0FFF) */
+	extern uint8_t vpc3_shadow_ram[];
+	uint16_t wAddress = (uint16_t)((uintptr_t)pToVpc3Memory - (uintptr_t)vpc3_shadow_ram);
 	uint8_t upperByte = (uint8_t)(wAddress >> 8);
 	uint8_t lowerByte = (uint8_t)wAddress;
 	uint8_t tx_buffer[3] = {READ_ARRAY, upperByte, lowerByte};
@@ -353,7 +375,10 @@ void CopyFromVpc3( MEM_UNSIGNED8_PTR pLocalMemory, VPC3_UNSIGNED8_PTR pToVpc3Mem
 
 void CopyToVpc3(VPC3_UNSIGNED8_PTR pToVpc3Memory, MEM_UNSIGNED8_PTR pLocalMemory, uint16_t wLength)
 {
-	uint16_t wAddress = (VPC3_ADR)(uintptr_t)pToVpc3Memory;
+	/* CORREGIDO: Calcular offset relativo al shadow RAM, no dirección absoluta */
+	/* pToVpc3Memory apunta a shadow RAM (0x2000XXXX), pero VPC3 espera offset (0x0000-0x0FFF) */
+	extern uint8_t vpc3_shadow_ram[];
+	uint16_t wAddress = (uint16_t)((uintptr_t)pToVpc3Memory - (uintptr_t)vpc3_shadow_ram);
 	uint8_t upperByte = (uint8_t)(wAddress >> 8);
 	uint8_t lowerByte = (uint8_t)wAddress;
 	uint8_t cmd_addr_buffer[3] = {WRITE_ARRAY, upperByte, lowerByte};

@@ -2,7 +2,7 @@
 /* ========================================================================= */
 /*                                                                           */
 /* 0000  000   000  00000 0  000  0   0 0 0000                               */
-/* 0   0 0  0 0   0 0     0 0   0 0   0 0 0   0      Einsteinstraße 6        */
+/* 0   0 0  0 0   0 0     0 0   0 0   0 0 0   0      Einsteinstraï¿½e 6        */
 /* 0   0 0  0 0   0 0     0 0     0   0 0 0   0      91074 Herzogenaurach    */
 /* 0000  000  0   0 000   0 0     00000 0 0000       Germany                 */
 /* 0     00   0   0 0     0 0     0   0 0 0                                  */
@@ -268,7 +268,7 @@
    #define bVpc3RwDxbStatusBufPtr      (VPC3_ADR)( Vpc3AsicAddress + 0x38 )   /**<(038H) segment base address of dxb link status buffer */
    #define bVpc3RwRealNoAddChange      (VPC3_ADR)( Vpc3AsicAddress + 0x39 )   /**<(039H) address changes */
    #define bVpc3RwIdentLow             (VPC3_ADR)( Vpc3AsicAddress + 0x3A )   /**<(03AH) IDENT_LOW */
-   #define bVpc3RwIdentHigH            (VPC3_ADR)( Vpc3AsicAddress + 0x3B )   /**<(03BH) IDENT_HIGH */
+   #define bVpc3RwIdentHigh            (VPC3_ADR)( Vpc3AsicAddress + 0x3B )   /**<(03BH) IDENT_HIGH */
    #define bVpc3RwGcCommand            (VPC3_ADR)( Vpc3AsicAddress + 0x3C )   /**<(03CH) last global control command */
    #define bVpc3RwLenSpecPrmBuf        (VPC3_ADR)( Vpc3AsicAddress + 0x3D )   /**<(03DH) length of SPEC_PRM buffer */
    #define bVpc3RwDxbOutBufPtr2        (VPC3_ADR)( Vpc3AsicAddress + 0x3E )   /**<(03EH) segment base address of dxbout_buffer2 */
@@ -2713,41 +2713,41 @@ typedef struct
 #define TS_DIAG_AT_EV_02               ((uint8_t)0x02)     /* 2: Event, Trend_Float structure (DS-46) */
 #define TS_DIAG_AT_EV_03               ((uint8_t)0x03)     /* 3: Event, Trend_Discrete structure (DS-47) */
 #define TS_DIAG_AT_EV_04               ((uint8_t)0x04)     /* 4: Event, Trend_Bit_String structure (DS-48) */
-                                                           /* 5 – 9: reserved for other Event alert object types */
+                                                           /* 5 ï¿½ 9: reserved for other Event alert object types */
 #define TS_DIAG_AT_PA_0A               ((uint8_t)0x0A)     /* 10: Process Alarm, Alarm_Float structure (DS-39) */
 #define TS_DIAG_AT_PA_0B               ((uint8_t)0x0B)     /* 11: Process Alarm, Alarm_Discrete structure (DS-40) */
 #define TS_DIAG_AT_PA_0C               ((uint8_t)0x0C)     /* 12: Process Alarm, Alarm_Integer structure (DS-86) */
-                                                           /* 13 – 19: reserved for other Process Alarm alert object types */
+                                                           /* 13 ï¿½ 19: reserved for other Process Alarm alert object types */
 #define TS_DIAG_AT_PA_0D               ((uint8_t)0x0D)     /* 13: Process Alarm, */
 
 
 #define TS_DIAG_AT_UA_14               ((uint8_t)0x14)     /* 20: Update Alarm, Alarm_Update structure (DS-41) */
-                                                           /* 21 – 29: reserved for other Update Alarm alert object types */
+                                                           /* 21 ï¿½ 29: reserved for other Update Alarm alert object types */
 #define TS_DIAG_AT_SA_1E               ((uint8_t)0x1E)     /* 30: Status Alarm, Alarm_Mode_Change structure (DS-87) */
 #define TS_DIAG_AT_SA_1F               ((uint8_t)0x1F)     /* 31: Status Alarm, Alarm_Simulation structure (DS-88) */
 #define TS_DIAG_AT_SA_20               ((uint8_t)0x20)     /* 32: Status Alarm, Alarm_Fail_Safe structure (DS-89) */
 #define TS_DIAG_AT_SA_21               ((uint8_t)0x21)     /* 33: Status Alarm, Alarm_Access_Protection structure (DS-90) */
 #define TS_DIAG_AT_SA_22               ((uint8_t)0x22)     /* 34: Status Alarm, Alarm_Sampling_Information structure (DS-96) */
 #define TS_DIAG_AT_SA_23               ((uint8_t)0x23)     /* 35: Status Alarm, Alarm_Sampling_State structure (DS-96) */
-                                                           /* 36 – 39: reserved for other Status Alarm alert object types */
+                                                           /* 36 ï¿½ 39: reserved for other Status Alarm alert object types */
 #define TS_DIAG_AT_TD_28               ((uint8_t)0x28)     /* 40: Timestamped Diagnosis, Alarm_Diagnosis structure (DS-91) */
 #define TS_DIAG_AT_TD_29               ((uint8_t)0x29)     /* 41: Timestamped Diagnosis, Alarm_Extended_Diagnosis structure (DS-92) */
 #define TS_DIAG_AT_TD_2A               ((uint8_t)0x2A)     /* 42: Timestamped Diagnosis, Alarm_Checkback structure (DS-93) */
 #define TS_DIAG_AT_TD_2B               ((uint8_t)0x2B)     /* 43: Timestamped Diagnosis, Alarm_Defect_Class structure (DS-94) */
 #define TS_DIAG_AT_TD_2C               ((uint8_t)0x2C)     /* 44: Timestamped Diagnosis, Alarm_Sampling_Diagnosis structure (DS-91) */
-                                                           /* 45 – 49: reserved for other Timestamped Diagnosis alert object types */
+                                                           /* 45 ï¿½ 49: reserved for other Timestamped Diagnosis alert object types */
 
 /* #define for Alert Profile Identification */
 #define TS_DIAG_API_NOT_ALLOWED        ((uint16_t)0x0000)  /* 0: reserved (not allowed) */
 #define TS_DIAG_API_PA_01              ((uint16_t)0x0001)  /* 1: "PROFIBUS-PA Profile for Process Control Devices, Version 3, Amendment 1"(support of alarms) */
                                                            /* 2 - 9: reserved for new versions or amendments of "PROFIBUS-PA Profile for Process Control Devices". */
-                                                           /* 10 – 99: reserved for "Profile for Remote I/O" and following versions and amendments */
-                                                           /* 100 – 199: reserved for "Profile for NC/RC Controllers" and following versions and amendments */
-                                                           /* 200 – 299: reserved for "Profile for Encoders" and following versions and amendments */
-                                                           /* 300 – 399: reserved for "Profile for Variable Speed Drives" and following versions and amendments */
-                                                           /* 400 – 499: reserved for "Profile for Variable Speed Drives" and following versions and amendments */
-                                                           /* 500 – 32767: reserved (PNO) */
-                                                           /* 32768 – 65531: manufacturer specific */
+                                                           /* 10 ï¿½ 99: reserved for "Profile for Remote I/O" and following versions and amendments */
+                                                           /* 100 ï¿½ 199: reserved for "Profile for NC/RC Controllers" and following versions and amendments */
+                                                           /* 200 ï¿½ 299: reserved for "Profile for Encoders" and following versions and amendments */
+                                                           /* 300 ï¿½ 399: reserved for "Profile for Variable Speed Drives" and following versions and amendments */
+                                                           /* 400 ï¿½ 499: reserved for "Profile for Variable Speed Drives" and following versions and amendments */
+                                                           /* 500 ï¿½ 32767: reserved (PNO) */
+                                                           /* 32768 ï¿½ 65531: manufacturer specific */
 #define TS_DIAG_API_MANUFACTURER       ((uint16_t)0x8000)  /* 32768 */
 
 #define TS_DIAG_API_NOT_USED           ((uint16_t)0xFFFC)  /* 65532: not used */

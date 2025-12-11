@@ -33,7 +33,12 @@
 /*****************************************************************************/
 /* include hierarchy */
 #include <string.h>
+#include <stdio.h>
 #include "platform.h"
+#include "main.h"
+
+/* Debug UART para diagnóstico */
+extern UART_HandleTypeDef huart1;
 
 
 #if VPC3_SERIAL_MODE
@@ -461,6 +466,13 @@ void VPC3_Poll( void )
 	
 volatile uint8_t bResult;
 
+/* DEBUG: Variables para logging de eventos */
+static uint32_t dbg_poll_count = 0;
+static uint16_t dbg_last_event = 0;
+static uint32_t dbg_last_event_time = 0;
+char dbg_buf[128];
+int dbg_n;
+
    #if DP_INTERRUPT_MASK_8BIT == 0
 
       #if VPC3_SERIAL_MODE
@@ -478,6 +490,22 @@ volatile uint8_t bResult;
       #endif /* #if VPC3_SERIAL_MODE */
 
       pDpSystem->wPollInterruptEvent &= pDpSystem->wPollInterruptMask;
+      
+      /* DEBUG: Mostrar eventos cada vez que hay uno nuevo o diferente */
+      dbg_poll_count++;
+      if( pDpSystem->wPollInterruptEvent != dbg_last_event && pDpSystem->wPollInterruptEvent > 0 )
+      {
+         extern uint32_t HAL_GetTick(void);
+         uint32_t now = HAL_GetTick();
+         dbg_n = snprintf(dbg_buf, sizeof(dbg_buf), 
+            "[ISR] Event=0x%04X (raw H=0x%02X L=0x%02X) t=%lu\r\n",
+            pDpSystem->wPollInterruptEvent,
+            Vpc3Read( bVpc3RwIntReqReg_H ), Vpc3Read( bVpc3RwIntReqReg_L ),
+            now);
+         HAL_UART_Transmit(&huart1, (uint8_t*)dbg_buf, dbg_n, 50);
+         dbg_last_event = pDpSystem->wPollInterruptEvent;
+         dbg_last_event_time = now;
+      }
 
       if( pDpSystem->wPollInterruptEvent > 0 )
       {
@@ -512,6 +540,8 @@ volatile uint8_t bResult;
          /*------------------------------------------------------------------*/
          if( VPC3_POLL_IND_NEW_PRM_DATA() )
          {
+            dbg_n = snprintf(dbg_buf, sizeof(dbg_buf), "[ISR] *** NEW_PRM_DATA detectado! ***\r\n");
+            HAL_UART_Transmit(&huart1, (uint8_t*)dbg_buf, dbg_n, 50);
 					 
             uint8_t bPrmLength;
 
@@ -557,6 +587,9 @@ volatile uint8_t bResult;
          /*------------------------------------------------------------------*/
          if( VPC3_POLL_IND_NEW_CFG_DATA() )
          {
+            dbg_n = snprintf(dbg_buf, sizeof(dbg_buf), "[ISR] *** NEW_CFG_DATA detectado! ***\r\n");
+            HAL_UART_Transmit(&huart1, (uint8_t*)dbg_buf, dbg_n, 50);
+            
             uint8_t bCfgLength;
 
             #if DP_INTERRUPT_MASK_8BIT == 0
@@ -646,12 +679,15 @@ volatile uint8_t bResult;
          /*------------------------------------------------------------------*/
          if( VPC3_POLL_IND_GO_LEAVE_DATA_EX() )
          {
+            uint8_t dp_state = VPC3_GET_DP_STATE();
+            dbg_n = snprintf(dbg_buf, sizeof(dbg_buf), "[ISR] *** GO_LEAVE_DATA_EX! DP_State=%d ***\r\n", dp_state);
+            HAL_UART_Transmit(&huart1, (uint8_t*)dbg_buf, dbg_n, 50);
 					 
             #if DP_MSAC_C1
                MSAC_C1_LeaveDx();
             #endif /* #if DP_MSAC_C1 */
 
-            DpAppl_IsrGoLeaveDataExchange( VPC3_GET_DP_STATE() );
+            DpAppl_IsrGoLeaveDataExchange( dp_state );
 
             VPC3_CON_IND_GO_LEAVE_DATA_EX();
          } /* if( VPC3_POLL_IND_GO_LEAVE_DATA_EX() ) */
@@ -698,6 +734,10 @@ volatile uint8_t bResult;
          /*------------------------------------------------------------------*/
          if( VPC3_POLL_IND_BAUDRATE_DETECT() )
          {
+            uint8_t baud = VPC3_GET_BAUDRATE();
+            dbg_n = snprintf(dbg_buf, sizeof(dbg_buf), "[ISR] *** BAUDRATE_DETECT! Baud=0x%02X ***\r\n", baud);
+            HAL_UART_Transmit(&huart1, (uint8_t*)dbg_buf, dbg_n, 50);
+            
             #if DP_MSAC_C2
                MSAC_C2_SetTimeoutIsr();
             #endif /* #if DP_MSAC_C2 */

@@ -47,9 +47,16 @@ I2C_HandleTypeDef hi2c1;
 
 SPI_HandleTypeDef hspi1;
 
-UART_HandleTypeDef huart2;
+UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
+/*******************************************************************************************
+	VAR VPC3 - Shadow RAM (CRÍTICO: debe estar en RAM, no en Flash)
+*******************************************************************************************/
+// Buffer para la memoria sombra del VPC3 (2KB para simular registros del chip)
+// NOTA: Este buffer reemplaza la dirección 0x0000 que apuntaba incorrectamente a Flash
+uint8_t vpc3_shadow_ram[2048] __attribute__((aligned(4)));
+
 /*******************************************************************************************
 	VAR I2C
 *******************************************************************************************/
@@ -158,27 +165,27 @@ int main(void)
 
     // Mensaje de inicio dividido en partes para evitar overflow del buffer
     n = snprintf(diag_buf, sizeof(diag_buf), "\r\n\r\n========================================\r\n");
-    HAL_UART_Transmit(&huart2, (uint8_t*)diag_buf, n, 100);
+    HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
     
     n = snprintf(diag_buf, sizeof(diag_buf), "[BOOT] STM32F401CC VPC3+ Profibus Slave\r\n");
-    HAL_UART_Transmit(&huart2, (uint8_t*)diag_buf, n, 100);
+    HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
     
     n = snprintf(diag_buf, sizeof(diag_buf), "========================================\r\n");
-    HAL_UART_Transmit(&huart2, (uint8_t*)diag_buf, n, 100);
+    HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
 
     n = snprintf(diag_buf, sizeof(diag_buf),
         "[CLK] SystemCoreClock = %lu Hz\r\n", SystemCoreClock);
-    HAL_UART_Transmit(&huart2, (uint8_t*)diag_buf, n, 100);
+    HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
 
     // Verificar que el clock sea ~84MHz
     if(SystemCoreClock < 80000000 || SystemCoreClock > 88000000) {
       n = snprintf(diag_buf, sizeof(diag_buf),
           "[ERROR] Clock incorrecto! Esperado: 84MHz\r\n");
-      HAL_UART_Transmit(&huart2, (uint8_t*)diag_buf, n, 100);
+      HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
     } else {
       n = snprintf(diag_buf, sizeof(diag_buf),
           "[OK] Clock configurado correctamente\r\n");
-      HAL_UART_Transmit(&huart2, (uint8_t*)diag_buf, n, 100);
+      HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
     }
 
     // Mostrar fuente del clock
@@ -190,17 +197,17 @@ int main(void)
 
     n = snprintf(diag_buf, sizeof(diag_buf),
         "[CLK] Fuente SYSCLK: %s\r\n", src_name);
-    HAL_UART_Transmit(&huart2, (uint8_t*)diag_buf, n, 100);
+    HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
 
     // Mostrar APB1 y APB2 clocks
     n = snprintf(diag_buf, sizeof(diag_buf),
         "[CLK] APB1=%lu Hz, APB2=%lu Hz\r\n",
         HAL_RCC_GetPCLK1Freq(), HAL_RCC_GetPCLK2Freq());
-    HAL_UART_Transmit(&huart2, (uint8_t*)diag_buf, n, 100);
+    HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
 
     n = snprintf(diag_buf, sizeof(diag_buf),
         "========================================\r\n\r\n");
-    HAL_UART_Transmit(&huart2, (uint8_t*)diag_buf, n, 100);
+    HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
   }
 
   // --- Inicialización VPC3 ---
@@ -211,7 +218,7 @@ int main(void)
   {
     char msg[64];
     int n = snprintf(msg, sizeof(msg), "[VPC3] Iniciando inicializacion...\r\n");
-    HAL_UART_Transmit(&huart2, (uint8_t*)msg, n, 100);
+    HAL_UART_Transmit(&huart1, (uint8_t*)msg, n, 100);
   }
 
   DpAppl_ProfibusInit();
@@ -262,7 +269,7 @@ int main(void)
 	          sDpAppl.abDpInputData[0], sDpAppl.abDpInputData[1], sDpAppl.abDpInputData[2], sDpAppl.abDpInputData[3],
 	          sDpAppl.abDpInputData[4], sDpAppl.abDpInputData[5], sDpAppl.abDpInputData[6], sDpAppl.abDpInputData[7]);
 
-	  HAL_UART_Transmit(&huart2, (uint8_t*)buf, n, 100);
+	  HAL_UART_Transmit(&huart1, (uint8_t*)buf, n, 100);
 	  __enable_irq();
 	  last_log_time = current_time;
 	  }
@@ -285,7 +292,7 @@ int main(void)
 	          i2c_rx_buffer[3], i2c_rx_buffer[3],
 	          i2c_rx_buffer[4], i2c_rx_buffer[4],
 	          i2c_tx_buffer[1]);
-	      HAL_UART_Transmit(&huart2, (uint8_t*)i2c_buf, i2c_n, 100);
+	      HAL_UART_Transmit(&huart1, (uint8_t*)i2c_buf, i2c_n, 100);
 	      __enable_irq();
 	      last_i2c_log = current_time;
 	  }
@@ -424,15 +431,15 @@ static void MX_USART1_UART_Init(void)
   /* USER CODE BEGIN USART1_Init 1 */
 
   /* USER CODE END USART1_Init 1 */
-  huart2.Instance = USART1;
-  huart2.Init.BaudRate = 115200;
-  huart2.Init.WordLength = UART_WORDLENGTH_8B;
-  huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_NONE;
-  huart2.Init.Mode = UART_MODE_TX_RX;
-  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart2) != HAL_OK)
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
   {
     Error_Handler();
   }

@@ -306,7 +306,7 @@ int                 n;
 
       memset( pVpc3, 0, sizeof( VPC3_STRUC ) );
       
-      n = snprintf(diag_buf, sizeof(diag_buf), "[VPC3] Modo SPI, Addr=0x%04X\r\n", (unsigned int)VPC3_ASIC_ADDRESS);
+      n = snprintf(diag_buf, sizeof(diag_buf), "[VPC3] Modo SPI, ShadowRAM=0x%08lX\r\n", (unsigned long)(uintptr_t)VPC3_ASIC_ADDRESS);
       HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
    #else
       pVpc3Channel1 = (VPC3_STRUC_PTR)(uintptr_t)VPC3_ASIC_ADDRESS;
@@ -375,6 +375,57 @@ int                 n;
          
          n = snprintf(diag_buf, sizeof(diag_buf), "[VPC3] VPC3_Start() completado. Listo!\r\n");
          HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
+         
+         // Diagnóstico: Leer Ident Number del VPC3 para verificar configuración
+         #if VPC3_SERIAL_MODE
+         {
+            uint8_t identLow = Vpc3Read(bVpc3RwIdentLow);
+            uint8_t identHigh = Vpc3Read(bVpc3RwIdentHigh);
+            uint16_t identRead = ((uint16_t)identHigh << 8) | identLow;
+            uint8_t slaveAddr = Vpc3Read(bVpc3RwTsAddr);
+            
+            n = snprintf(diag_buf, sizeof(diag_buf), 
+                "[VPC3] Verificacion: IdentNr=0x%04X (esperado=0x%04X), SlaveAddr=%d\r\n", 
+                identRead, IDENT_NR, slaveAddr);
+            HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
+            
+            if(identRead != IDENT_NR) {
+               n = snprintf(diag_buf, sizeof(diag_buf), 
+                   "[VPC3] ERROR: IdentNr incorrecto! Esperado 0x%04X, leido 0x%04X\r\n", 
+                   IDENT_NR, identRead);
+               HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
+            }
+            
+            // DEBUG ADICIONAL: Leer Mode Registers y otros registros críticos
+            uint8_t modeReg0_H = Vpc3Read(bVpc3RwModeReg0_H);
+            uint8_t modeReg0_L = Vpc3Read(bVpc3RwModeReg0_L);
+            uint8_t modeReg1 = Vpc3Read(bVpc3RoModeReg1);
+            uint8_t statusH = Vpc3Read(bVpc3RoStatus_H);
+            uint8_t statusL = Vpc3Read(bVpc3RoStatus_L);
+            
+            n = snprintf(diag_buf, sizeof(diag_buf), 
+                "[VPC3] ModeReg0: H=0x%02X L=0x%02X | ModeReg1=0x%02X\r\n", 
+                modeReg0_H, modeReg0_L, modeReg1);
+            HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
+            
+            n = snprintf(diag_buf, sizeof(diag_buf), 
+                "[VPC3] Status: H=0x%02X L=0x%02X | ASIC=%s\r\n", 
+                statusH, statusL, 
+                ((statusH & 0xE0) == 0xE0) ? "VPC3+S OK" : "ERROR!");
+            HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
+            
+            // Verificar si DP_Mode está habilitado (bit 0 de ModeReg0_H = bit 8 total)
+            if(!(modeReg0_H & 0x01)) {
+               n = snprintf(diag_buf, sizeof(diag_buf), 
+                   "[VPC3] WARN: DP_Mode NO habilitado!\r\n");
+               HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
+            } else {
+               n = snprintf(diag_buf, sizeof(diag_buf), 
+                   "[VPC3] OK: DP_Mode habilitado.\r\n");
+               HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
+            }
+         }
+         #endif
       }//if( DP_OK == bError )
       else
       {
@@ -443,6 +494,11 @@ void DpAppl_ProfibusMain( void )
 #endif /* #if VPC3_SERIAL_MODE */
 uint8_t bDpState;
 
+/* DEBUG: Log periódico del estado */
+static uint32_t dbg_main_last_log = 0;
+static uint8_t dbg_main_last_irq_h = 0xFF;
+static uint8_t dbg_main_last_irq_l = 0xFF;
+
    /*-------------------------------------------------------------------*/
    /* trigger watchdogs                                                 */
    /*-------------------------------------------------------------------*/
@@ -450,6 +506,32 @@ uint8_t bDpState;
    VPC3_RESET_USER_WD();   // toggle user watchdog
 
    #if VPC3_SERIAL_MODE
+      /*----------------------------------------------------------------*/
+      /* DEBUG: Log periódico de registros de interrupción              */
+      /*----------------------------------------------------------------*/
+      {
+         uint32_t now = HAL_GetTick();
+         uint8_t irq_h = Vpc3Read( bVpc3RwIntReqReg_H );
+         uint8_t irq_l = Vpc3Read( bVpc3RwIntReqReg_L );
+         
+         /* Log cada 5 segundos o si cambian los registros */
+         if( (now - dbg_main_last_log >= 5000) || 
+             (irq_h != dbg_main_last_irq_h) || (irq_l != dbg_main_last_irq_l) )
+         {
+            if( irq_h != 0 || irq_l != 0 || (now - dbg_main_last_log >= 5000) )
+            {
+               char dbg_main_buf[96];
+               int dbg_main_n = snprintf(dbg_main_buf, sizeof(dbg_main_buf),
+                  "[MAIN] IRQ: H=0x%02X L=0x%02X | Mask=0x%04X\r\n",
+                  irq_h, irq_l, pDpSystem->wPollInterruptMask);
+               HAL_UART_Transmit(&huart1, (uint8_t*)dbg_main_buf, dbg_main_n, 50);
+               dbg_main_last_log = now;
+            }
+            dbg_main_last_irq_h = irq_h;
+            dbg_main_last_irq_l = irq_l;
+         }
+      }
+      
       /*----------------------------------------------------------------*/
       /* Poll PROFIBUS events                                           */
       /*----------------------------------------------------------------*/

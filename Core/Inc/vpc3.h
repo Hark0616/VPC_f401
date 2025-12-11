@@ -6,7 +6,7 @@
 #include "DpAppl.h"
 //#include "platform.h"
 
-/*****************************DEFINÍCIÓK*******************************************/
+/*****************************DEFINï¿½CIï¿½K*******************************************/
 #define READ_BYTE 			(0X13)
 #define READ_ARRAY			(0X03)
 #define WRITE_BYTE      (0X12)
@@ -20,6 +20,9 @@ void       Vpc3MemSet   ( VPC3_ADR wAddress, uint8_t bValue, uint16_t wLength );
 uint8_t    Vpc3MemCmp   ( VPC3_UNSIGNED8_PTR pToVpc3Memory1, VPC3_UNSIGNED8_PTR pToVpc3Memory2, uint16_t wLength );
 void       CopyToVpc3   ( VPC3_UNSIGNED8_PTR pToVpc3Memory, MEM_UNSIGNED8_PTR pLocalMemory, uint16_t wLength );
 void       CopyFromVpc3 ( MEM_UNSIGNED8_PTR pLocalMemory, VPC3_UNSIGNED8_PTR pToVpc3Memory, uint16_t wLength );
+
+// DiagnÃ³stico SPI
+uint8_t    Vpc3_SpiDiagnostic( void );
 
 
 

@@ -53,8 +53,9 @@
 #include <string.h>
 #include "platform.h"
 #include "DpAppl.h"
+#include "vpc3.h"   // Para Vpc3_SpiDiagnostic()
 #include <stdio.h>
-#include "main.h"  // para extern UART handle
+#include "main.h"   // para extern UART handle
 extern UART_HandleTypeDef huart1;
 
 /*---------------------------------------------------------------------------*/
@@ -287,6 +288,8 @@ static void DpAppl_ApplicationReady( void )
 void DpAppl_ProfibusInit( void )
 {
 DP_ERROR_CODE       bError;
+char                diag_buf[96];
+int                 n;
 
    /*-----------------------------------------------------------------------*/
    /* init application data                                                 */
@@ -302,11 +305,17 @@ DP_ERROR_CODE       bError;
       pDpSystem = &sDpSystemChannel1;
 
       memset( pVpc3, 0, sizeof( VPC3_STRUC ) );
+      
+      n = snprintf(diag_buf, sizeof(diag_buf), "[VPC3] Modo SPI, Addr=0x%04X\r\n", (unsigned int)VPC3_ASIC_ADDRESS);
+      HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
    #else
       pVpc3Channel1 = (VPC3_STRUC_PTR)(uintptr_t)VPC3_ASIC_ADDRESS;
       Vpc3AsicAddress = (VPC3_ADR)(uintptr_t)VPC3_ASIC_ADDRESS;
       pVpc3 = pVpc3Channel1;
       pDpSystem = &sDpSystemChannel1;
+      
+      n = snprintf(diag_buf, sizeof(diag_buf), "[VPC3] Modo Paralelo, Addr=0x%08lX\r\n", (unsigned long)VPC3_ASIC_ADDRESS);
+      HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
    #endif//#if VPC3_SERIAL_MODE
 
    /*-----------------------------------------------------------------------*/
@@ -319,34 +328,86 @@ DP_ERROR_CODE       bError;
    DpCfg_Init();
    DpDiag_Init();
 
+   n = snprintf(diag_buf, sizeof(diag_buf), "[VPC3] Liberando reset...\r\n");
+   HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
+
    DpAppl_ClrResetVPC3Channel1();
+   
+   // Esperar a que el VPC3 se estabilice después del reset
+   // El VPC3+S necesita tiempo para inicializar después de salir de reset
+   HAL_Delay(100);
+
+   // Ejecutar diagnóstico SPI antes del memory test
+   n = snprintf(diag_buf, sizeof(diag_buf), "[VPC3] Ejecutando diagnostico SPI...\r\n");
+   HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
+   
+   Vpc3_SpiDiagnostic();
+   
+   n = snprintf(diag_buf, sizeof(diag_buf), "[VPC3] Ejecutando Memory Test...\r\n");
+   HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
 
    bError = VPC3_MemoryTest();
 
    if( DP_OK == bError )
    {
+      n = snprintf(diag_buf, sizeof(diag_buf), "[VPC3] Memory Test: OK\r\n");
+      HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
+
       #ifdef EvaBoard_AT89C5132
          bError = VPC3_Initialization( (*READ_PORT0 & 0x7F), IDENT_NR, (psCFG)&sDpAppl.sCfgData );     // address of slave; PORT0
       #else
+         n = snprintf(diag_buf, sizeof(diag_buf), "[VPC3] Inicializando DP_ADDR=%d...\r\n", DP_ADDR);
+         HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
+         
          bError = VPC3_Initialization( DP_ADDR, IDENT_NR, (psCFG)&sDpAppl.sCfgData );                  // address of slave
       #endif//#ifdef EvaBoard_AT89C5132
 
       if( DP_OK == bError )
       {
+         n = snprintf(diag_buf, sizeof(diag_buf), "[VPC3] Inicializacion: OK\r\n");
+         HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
+
          DpAppl_EnableInterruptVPC3Channel1();
 
          //todo: before startup the VPC3+, make here your own initialzations
 
          VPC3_Start();
+         
+         n = snprintf(diag_buf, sizeof(diag_buf), "[VPC3] VPC3_Start() completado. Listo!\r\n");
+         HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
       }//if( DP_OK == bError )
       else
       {
+         n = snprintf(diag_buf, sizeof(diag_buf), "[VPC3] ERROR Inicializacion: 0x%02X\r\n", bError);
+         HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
+         
          sVpc3Error.bErrorCode = bError;
          DpAppl_FatalError( _DP_USER, __LINE__, &sVpc3Error );
       }//else of if( DP_OK == bError )
    }//if( DP_OK == bError )
    else
    {
+      n = snprintf(diag_buf, sizeof(diag_buf), "[VPC3] ERROR Memory Test: 0x%02X\r\n", bError);
+      HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
+      
+      // Diagnóstico adicional: intentar leer status del VPC3
+      #if VPC3_SERIAL_MODE
+      {
+         uint8_t sh = VPC3_GET_STATUS_H();
+         uint8_t sl = VPC3_GET_STATUS_L();
+         n = snprintf(diag_buf, sizeof(diag_buf), "[VPC3] Status: H=0x%02X L=0x%02X\r\n", sh, sl);
+         HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
+         
+         if(sh == 0xFF && sl == 0xFF) {
+            n = snprintf(diag_buf, sizeof(diag_buf), "[VPC3] HINT: SPI no responde (0xFF). Verifica conexiones!\r\n");
+            HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
+         } else if(sh == 0x00 && sl == 0x00) {
+            n = snprintf(diag_buf, sizeof(diag_buf), "[VPC3] HINT: SPI lee ceros. Verifica CS y CLK!\r\n");
+            HAL_UART_Transmit(&huart1, (uint8_t*)diag_buf, n, 100);
+         }
+      }
+      #endif
+
       sVpc3Error.bErrorCode = bError;
       DpAppl_FatalError( _DP_USER, __LINE__, &sVpc3Error );
    }//else of if( DP_OK == bError )
@@ -507,6 +568,45 @@ uint8_t bDpState;
    if (bDpState != prevState) {
      log_state(bDpState);
      prevState = bDpState;
+     
+     // Mostrar baudrate detectado cuando cambie el estado
+     uint8_t baudrate = VPC3_GET_BAUDRATE();
+     char baud_buf[64];
+     const char *baud_name = "???";
+     switch(baudrate) {
+       case 0: baud_name = "12M"; break;
+       case 1: baud_name = "6M"; break;
+       case 2: baud_name = "3M"; break;
+       case 3: baud_name = "1.5M"; break;
+       case 4: baud_name = "500K"; break;
+       case 5: baud_name = "187.5K"; break;
+       case 6: baud_name = "93.75K"; break;
+       case 7: baud_name = "45.45K"; break;
+       case 8: baud_name = "19.2K"; break;
+       case 9: baud_name = "9.6K"; break;
+       case 0x0F: baud_name = "No detectado"; break;
+     }
+     int bn = snprintf(baud_buf, sizeof(baud_buf), "[BAUD] Baudrate: %s (0x%02X)\r\n", baud_name, baudrate);
+     HAL_UART_Transmit(&huart1, (uint8_t*)baud_buf, bn, 50);
+   }
+   
+   // Diagnóstico periódico cada 5 segundos
+   static uint32_t last_diag_time = 0;
+   uint32_t now = HAL_GetTick();
+   if(now - last_diag_time >= 5000) {
+     last_diag_time = now;
+     
+     char diag[80];
+     int dn;
+     
+     // Leer Status registers del VPC3
+     uint8_t status_h = VPC3_GET_STATUS_H();
+     uint8_t status_l = VPC3_GET_STATUS_L();
+     uint8_t dp_state = VPC3_GET_DP_STATE();
+     
+     dn = snprintf(diag, sizeof(diag), "[DIAG] Status: H=0x%02X L=0x%02X DP=0x%02X\r\n", 
+                   status_h, status_l, dp_state);
+     HAL_UART_Transmit(&huart1, (uint8_t*)diag, dn, 50);
    }
 
    if (bDpState == DP_ERROR) {

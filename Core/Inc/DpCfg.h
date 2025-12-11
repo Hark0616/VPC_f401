@@ -66,7 +66,7 @@
    Use following values:
    - 1 to 126
 */
-#define DP_ADDR                     ((uint8_t)0x0C)     // Slave address
+#define DP_ADDR                     ((uint8_t)0x07)     // Slave address
 //#define DP_ADDR                     ((uint8_t)0x0C) 
 
 

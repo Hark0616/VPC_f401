@@ -231,12 +231,7 @@
 /*****************************************************************************/
 /* include hierarchy */
 #include <string.h>
-#include <stdio.h>
 #include "platform.h"
-#include "main.h"
-
-/* UART handle for debug output */
-extern UART_HandleTypeDef huart1;
 
 
 /*---------------------------------------------------------------------------*/

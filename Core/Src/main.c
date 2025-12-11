@@ -47,8 +47,7 @@ I2C_HandleTypeDef hi2c1;
 
 SPI_HandleTypeDef hspi1;
 
-UART_HandleTypeDef huart1;
-UART_HandleTypeDef huart6;
+UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 /*******************************************************************************************
@@ -66,7 +65,6 @@ uint8_t Impresion_2 = 0;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_USART6_UART_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_USART1_UART_Init(void);
@@ -142,44 +140,82 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_USART6_UART_Init();
   MX_SPI1_Init();
   MX_I2C1_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
-  // Mensaje de arranque por UART1 a 115200 8N1
+  // ============================================================================
+  // DIAGNÓSTICO DE CLOCK - Verificar que el sistema esté corriendo a 84MHz
+  // Si ves caracteres basura, el clock no está configurado correctamente
+  // ============================================================================
   {
-    const char *msg = "\r\n[BOOT] STM32F401 - VPC3+S SPI Interface\r\n";
-    HAL_UART_Transmit(&huart1, (uint8_t*)msg, strlen(msg), 100);
+    char diag_buf[80];
+    int n;
+
+    // Pequeña espera para estabilizar el UART
+    for(volatile int i = 0; i < 100000; i++);
+
+    // Mensaje de inicio dividido en partes para evitar overflow del buffer
+    n = snprintf(diag_buf, sizeof(diag_buf), "\r\n\r\n========================================\r\n");
+    HAL_UART_Transmit(&huart2, (uint8_t*)diag_buf, n, 100);
+    
+    n = snprintf(diag_buf, sizeof(diag_buf), "[BOOT] STM32F401CC VPC3+ Profibus Slave\r\n");
+    HAL_UART_Transmit(&huart2, (uint8_t*)diag_buf, n, 100);
+    
+    n = snprintf(diag_buf, sizeof(diag_buf), "========================================\r\n");
+    HAL_UART_Transmit(&huart2, (uint8_t*)diag_buf, n, 100);
+
+    n = snprintf(diag_buf, sizeof(diag_buf),
+        "[CLK] SystemCoreClock = %lu Hz\r\n", SystemCoreClock);
+    HAL_UART_Transmit(&huart2, (uint8_t*)diag_buf, n, 100);
+
+    // Verificar que el clock sea ~84MHz
+    if(SystemCoreClock < 80000000 || SystemCoreClock > 88000000) {
+      n = snprintf(diag_buf, sizeof(diag_buf),
+          "[ERROR] Clock incorrecto! Esperado: 84MHz\r\n");
+      HAL_UART_Transmit(&huart2, (uint8_t*)diag_buf, n, 100);
+    } else {
+      n = snprintf(diag_buf, sizeof(diag_buf),
+          "[OK] Clock configurado correctamente\r\n");
+      HAL_UART_Transmit(&huart2, (uint8_t*)diag_buf, n, 100);
+    }
+
+    // Mostrar fuente del clock
+    uint32_t clk_src = __HAL_RCC_GET_SYSCLK_SOURCE();
+    const char *src_name = "UNKNOWN";
+    if(clk_src == RCC_SYSCLKSOURCE_STATUS_HSI) src_name = "HSI";
+    else if(clk_src == RCC_SYSCLKSOURCE_STATUS_HSE) src_name = "HSE";
+    else if(clk_src == RCC_SYSCLKSOURCE_STATUS_PLLCLK) src_name = "PLL";
+
+    n = snprintf(diag_buf, sizeof(diag_buf),
+        "[CLK] Fuente SYSCLK: %s\r\n", src_name);
+    HAL_UART_Transmit(&huart2, (uint8_t*)diag_buf, n, 100);
+
+    // Mostrar APB1 y APB2 clocks
+    n = snprintf(diag_buf, sizeof(diag_buf),
+        "[CLK] APB1=%lu Hz, APB2=%lu Hz\r\n",
+        HAL_RCC_GetPCLK1Freq(), HAL_RCC_GetPCLK2Freq());
+    HAL_UART_Transmit(&huart2, (uint8_t*)diag_buf, n, 100);
+
+    n = snprintf(diag_buf, sizeof(diag_buf),
+        "========================================\r\n\r\n");
+    HAL_UART_Transmit(&huart2, (uint8_t*)diag_buf, n, 100);
   }
 
-  // --- Secuencia de Reset del VPC3+S ---
-  // VPC3+S reset pin is HIGH-ACTIVE: HIGH = reset, LOW = normal operation
-  {
-    const char *msg = "[VPC3] Iniciando secuencia de reset...\r\n";
-    HAL_UART_Transmit(&huart1, (uint8_t*)msg, strlen(msg), 100);
-  }
-  
-  // Paso 1: Asegurar que CS está HIGH (inactivo) antes de reset
-  HAL_GPIO_WritePin(VPC3_CS_GPIO_Port, VPC3_CS_Pin, GPIO_PIN_SET);
-  HAL_Delay(10);
-  
-  // Paso 2: Activar reset del VPC3+S (pin HIGH)
+  // --- Inicialización VPC3 ---
+  HAL_Delay(300);
   DpAppl_SetResetVPC3Channel1();
-  HAL_Delay(50);  // Mantener reset activo por 50ms
-  
-  // Paso 3: Liberar reset del VPC3+S (pin LOW)
-  DpAppl_ClrResetVPC3Channel1();
-  HAL_Delay(200); // Esperar 200ms después del reset para que VPC3+S se estabilice
-  
+  HAL_Delay(100); // Esperar que VPC3 se resetee completamente
+
   {
-    const char *msg = "[VPC3] Reset completado, iniciando Profibus...\r\n";
-    HAL_UART_Transmit(&huart1, (uint8_t*)msg, strlen(msg), 100);
+    char msg[64];
+    int n = snprintf(msg, sizeof(msg), "[VPC3] Iniciando inicializacion...\r\n");
+    HAL_UART_Transmit(&huart2, (uint8_t*)msg, n, 100);
   }
 
   DpAppl_ProfibusInit();
-  HAL_Delay(100); // Pequeña pausa después de inicialización
+  HAL_Delay(200); // Esperar que Profibus se inicialice completamente
 
   // --- Inicializar datos de Profibus con valores por defecto ---
   // Inicializar datos que el F411 enviará al PLC (pueden ser diferentes de cero)
@@ -226,7 +262,7 @@ int main(void)
 	          sDpAppl.abDpInputData[0], sDpAppl.abDpInputData[1], sDpAppl.abDpInputData[2], sDpAppl.abDpInputData[3],
 	          sDpAppl.abDpInputData[4], sDpAppl.abDpInputData[5], sDpAppl.abDpInputData[6], sDpAppl.abDpInputData[7]);
 
-	  HAL_UART_Transmit(&huart1, (uint8_t*)buf, n, 100);
+	  HAL_UART_Transmit(&huart2, (uint8_t*)buf, n, 100);
 	  __enable_irq();
 	  last_log_time = current_time;
 	  }
@@ -249,7 +285,7 @@ int main(void)
 	          i2c_rx_buffer[3], i2c_rx_buffer[3],
 	          i2c_rx_buffer[4], i2c_rx_buffer[4],
 	          i2c_tx_buffer[1]);
-	      HAL_UART_Transmit(&huart1, (uint8_t*)i2c_buf, i2c_n, 100);
+	      HAL_UART_Transmit(&huart2, (uint8_t*)i2c_buf, i2c_n, 100);
 	      __enable_irq();
 	      last_i2c_log = current_time;
 	  }
@@ -388,54 +424,21 @@ static void MX_USART1_UART_Init(void)
   /* USER CODE BEGIN USART1_Init 1 */
 
   /* USER CODE END USART1_Init 1 */
-  huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
-  huart1.Init.WordLength = UART_WORDLENGTH_8B;
-  huart1.Init.StopBits = UART_STOPBITS_1;
-  huart1.Init.Parity = UART_PARITY_NONE;
-  huart1.Init.Mode = UART_MODE_TX_RX;
-  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart1) != HAL_OK)
+  huart2.Instance = USART1;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
   {
     Error_Handler();
   }
   /* USER CODE BEGIN USART1_Init 2 */
 
   /* USER CODE END USART1_Init 2 */
-
-}
-
-/**
-  * @brief USART6 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART6_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART6_Init 0 */
-
-  /* USER CODE END USART6_Init 0 */
-
-  /* USER CODE BEGIN USART6_Init 1 */
-
-  /* USER CODE END USART6_Init 1 */
-  huart6.Instance = USART6;
-  huart6.Init.BaudRate = 115200;
-  huart6.Init.WordLength = UART_WORDLENGTH_8B;
-  huart6.Init.StopBits = UART_STOPBITS_1;
-  huart6.Init.Parity = UART_PARITY_NONE;
-  huart6.Init.Mode = UART_MODE_TX_RX;
-  huart6.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart6.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart6) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART6_Init 2 */
-
-  /* USER CODE END USART6_Init 2 */
 
 }
 
@@ -456,6 +459,8 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(VPC3_CS_GPIO_Port, VPC3_CS_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(VPC3_RESET_GPIO_Port, VPC3_RESET_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin : VPC3_INT_Pin */
@@ -468,14 +473,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = VPC3_CS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;  // Changed from LOW for better SPI timing
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(VPC3_CS_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : VPC3_RESET_Pin */
   GPIO_InitStruct.Pin = VPC3_RESET_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;  // Changed from LOW
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(VPC3_RESET_GPIO_Port, &GPIO_InitStruct);
 
 }
